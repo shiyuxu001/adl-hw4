@@ -504,7 +504,7 @@ You probably need to add additional commands to Fire below.
 
 
 def main():
-    fire.Fire({"check": check_qa_pairs, "write": generate_qa_pairs})
+    fire.Fire({"check": check_qa_pairs, "write": write_qa_pairs})
 
 
 if __name__ == "__main__":
