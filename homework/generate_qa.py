@@ -444,6 +444,56 @@ def check_qa_pairs(info_file: str, view_index: int):
         print(f"A: {qa['answer']}")
         print("-" * 50)
 
+'''
+write QA pairs to `..._qa_pairs.json` file in `data/train/` for training
+'''
+
+def write_qa_pairs(split: str = "train"):
+    """
+    Generate *_qa_pairs.json files for every *_info.json file in data/<split>.
+    """
+    data_dir = Path(__file__).parent.parent / "data" / split
+
+    info_files = sorted(data_dir.glob("*_info.json"))
+    if not info_files:
+        print(f"No *_info.json files found in {data_dir}")
+        return
+
+    total_written = 0
+
+    for info_path in info_files:
+        base_name = info_path.stem.replace("_info", "")
+        image_files = sorted(info_path.parent.glob(f"{base_name}_*_im.jpg"))
+
+        all_qa_pairs = []
+
+        for image_file in image_files:
+            parts = image_file.stem.split("_")
+            if len(parts) < 3:
+                continue
+
+            view_index = int(parts[1])
+            qa_pairs = generate_qa_pairs(str(info_path), view_index)
+
+            for qa in qa_pairs:
+                all_qa_pairs.append(
+                    {
+                        "image_file": f"{split}/{image_file.name}",
+                        "question": qa["question"],
+                        "answer": qa["answer"],
+                    }
+                )
+
+        out_file = info_path.parent / f"{base_name}_qa_pairs.json"
+        with open(out_file, "w") as f:
+            json.dump(all_qa_pairs, f, indent=2)
+
+        total_written += len(all_qa_pairs)
+        print(f"Wrote {out_file} with {len(all_qa_pairs)} QA pairs")
+
+    print(f"Done. Total QA pairs written: {total_written}")
+
+
 
 """
 Usage Example: Visualize QA pairs for a specific file and view:
@@ -454,7 +504,7 @@ You probably need to add additional commands to Fire below.
 
 
 def main():
-    fire.Fire({"check": check_qa_pairs})
+    fire.Fire({"check": check_qa_pairs, "write": generate_qa_pairs})
 
 
 if __name__ == "__main__":
