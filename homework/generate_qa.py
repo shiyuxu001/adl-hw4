@@ -489,7 +489,7 @@ def write_qa_pairs(split: str = "train"):
             json.dump(all_qa_pairs, f, indent=2)
 
         total_written += len(all_qa_pairs)
-        print(f"Wrote {out_file} with {len(all_qa_pairs)} QA pairs")
+        # print(f"Wrote {out_file} with {len(all_qa_pairs)} QA pairs")
 
     print(f"Done. Total QA pairs written: {total_written}")
 
