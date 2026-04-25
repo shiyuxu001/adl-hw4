@@ -138,8 +138,7 @@ class CLIP(nn.Module):
         feat = feat / feat.norm(dim=-1, keepdim=True).clamp_min(1e-6)
         return feat
 
-    def encode_text(self, text: str) -> torch.Tensor:
-        # return self.text_encoder(text)
+    def encode_text(self, input_ids: torch.Tensor, attention_mask: torch.Tensor = None) -> torch.Tensor:        # return self.text_encoder(text)
         outputs = self.text_encoder(input_ids=input_ids, attention_mask=attention_mask)
 
         if hasattr(outputs, "last_hidden_state"):
