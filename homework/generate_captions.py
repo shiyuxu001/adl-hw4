@@ -52,6 +52,49 @@ def generate_caption(info_path: str, view_index: int, img_width: int = 150, img_
 
     return captions
 
+def write_captions(split: str = "train"):
+    """
+    Generate *_captions.json files for every *_info.json file in data/<split>.
+    """
+    data_dir = Path(__file__).parent.parent / "data" / split
+
+    info_files = sorted(data_dir.glob("*_info.json"))
+    if not info_files:
+        print(f"No *_info.json files found in {data_dir}")
+        return
+
+    total_written = 0
+
+    for info_path in info_files:
+        base_name = info_path.stem.replace("_info", "")
+        image_files = sorted(info_path.parent.glob(f"{base_name}_*_im.jpg"))
+
+        all_captions = []
+
+        for image_file in image_files:
+            parts = image_file.stem.split("_")
+            if len(parts) < 3:
+                continue
+
+            view_index = int(parts[1])
+            captions = generate_caption(str(info_path), view_index)
+
+            for caption in captions:
+                all_captions.append(
+                    {
+                        "image_file": f"{split}/{image_file.name}",
+                        "caption": caption,
+                    }
+                )
+
+        out_file = info_path.parent / f"{base_name}_captions.json"
+        with open(out_file, "w") as f:
+            json.dump(all_captions, f, indent=2)
+
+        total_written += len(all_captions)
+        print(f"Wrote {out_file} with {len(all_captions)} captions")
+
+    print(f"Done. Total captions written: {total_written}")
 
 
 def check_caption(info_file: str, view_index: int):
@@ -85,7 +128,7 @@ You probably need to add additional commands to Fire below.
 
 
 def main():
-    fire.Fire({"check": check_caption})
+    fire.Fire({"check": check_caption, "write": write_captions})
 
 
 if __name__ == "__main__":
