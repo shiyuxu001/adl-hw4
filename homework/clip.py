@@ -121,43 +121,48 @@ class CLIP(nn.Module):
 
 
     def encode_image(self, image: torch.Tensor) -> torch.Tensor:
-        return self.vision_encoder(image)
-        # outputs = self.vision_encoder(pixel_values=image)
+        # return self.vision_encoder(image)
+        outputs = self.vision_encoder(pixel_values=image)
 
-        # if hasattr(outputs, "pooler_output") and outputs.pooler_output is not None:
-        #     feat = outputs.pooler_output
-        # elif hasattr(outputs, "last_hidden_state"):
-        #     feat = outputs.last_hidden_state[:, 0]
-        # elif isinstance(outputs, tuple):
-        #     feat = outputs[0][:, 0]
-        # else:
-        #     feat = outputs
+        if hasattr(outputs, "pooler_output") and outputs.pooler_output is not None:
+            feat = outputs.pooler_output
+        elif hasattr(outputs, "last_hidden_state"):
+            # Average pool vision tokens
+            feat = outputs.last_hidden_state.mean(dim=1)
+        elif isinstance(outputs, tuple):
+            feat = outputs[0].mean(dim=1)
+        else:
+            feat = outputs
 
-        # feat = self.vision_projection(feat)
-        # feat = feat / feat.norm(dim=-1, keepdim=True).clamp_min(1e-6)
-        # return feat      
+        feat = self.vision_projection(feat)
+        feat = feat / feat.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+        return feat
 
     def encode_text(self, text: str) -> torch.Tensor:
-        return self.text_encoder(text)
-        # outputs = self.text_encoder(input_ids=input_ids, attention_mask=attention_mask)
+        # return self.text_encoder(text)
+        outputs = self.text_encoder(input_ids=input_ids, attention_mask=attention_mask)
 
-        # if hasattr(outputs, "last_hidden_state"):
-        #     hidden = outputs.last_hidden_state
-        # elif isinstance(outputs, tuple):
-        #     hidden = outputs[0]
-        # else:
-        #     hidden = outputs
+        if hasattr(outputs, "last_hidden_state"):
+            hidden = outputs.last_hidden_state
+        elif isinstance(outputs, tuple):
+            hidden = outputs[0]
+        else:
+            hidden = outputs
 
-        # if attention_mask is None:
-        #     text_feat = hidden[:, -1, :]
-        # else:
-        #     last_token_idx = attention_mask.long().sum(dim=1) - 1
-        #     batch_idx = torch.arange(hidden.size(0), device=hidden.device)
-        #     text_feat = hidden[batch_idx, last_token_idx, :]
+        eos_token_id = processor.tokenizer.eos_token_id
 
-        # text_feat = self.text_projection(text_feat)
-        # text_feat = text_feat / text_feat.norm(dim=-1, keepdim=True).clamp_min(1e-6)
-        # return text_feat
+        # Find first EOS occurrence in each row
+        eos_mask = (input_ids == eos_token_id)
+
+        # argmax returns first index of max value; if EOS exists, this is first True
+        eos_positions = eos_mask.float().argmax(dim=1)
+
+        batch_idx = torch.arange(hidden.size(0), device=hidden.device)
+        text_feat = hidden[batch_idx, eos_positions, :]
+
+        text_feat = self.text_projection(text_feat)
+        text_feat = text_feat / text_feat.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+        return text_feat
 
     def save_pretrained(self, save_directory: str, **kwargs):
         """Customize save method, save additional parameters"""
@@ -237,10 +242,10 @@ class CLIP(nn.Module):
         image_features = self.encode_image(pixel_values)
         text_features = self.encode_text(input_ids, attention_mask)
 
-        logit_scale = self.logit_scale.exp().clamp(max=100)
+        logit_scale = self.logit_scale.exp()
         logits_per_image = logit_scale * (image_features @ text_features.T)
 
-        return image_features, text_features, logits_per_image        
+        return image_features, text_features, logits_per_image    
 
 
 def compute_clip_loss(
