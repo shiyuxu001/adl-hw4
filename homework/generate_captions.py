@@ -93,7 +93,6 @@ def write_captions(split: str = "train"):
             json.dump(all_captions, f, indent=2)
 
         total_written += len(all_captions)
-        print(f"Wrote {out_file} with {len(all_captions)} captions")
 
     print(f"Done. Total captions written: {total_written}")
 
