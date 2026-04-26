@@ -148,16 +148,19 @@ class CLIP(nn.Module):
         else:
             hidden = outputs
 
-        eos_token_id = processor.tokenizer.eos_token_id
-
-        # Find first EOS occurrence in each row
-        eos_mask = (input_ids == eos_token_id)
-
-        # argmax returns first index of max value; if EOS exists, this is first True
-        eos_positions = eos_mask.float().argmax(dim=1)
+        if attention_mask is None:
+            positions = torch.full(
+                (hidden.size(0),),
+                hidden.size(1) - 1,
+                dtype=torch.long,
+                device=hidden.device,
+            )
+        else:
+            positions = attention_mask.long().sum(dim=1) - 1
+            positions = positions.clamp_min(0)
 
         batch_idx = torch.arange(hidden.size(0), device=hidden.device)
-        text_feat = hidden[batch_idx, eos_positions, :]
+        text_feat = hidden[batch_idx, positions, :]
 
         text_feat = self.text_projection(text_feat)
         text_feat = text_feat / text_feat.norm(dim=-1, keepdim=True).clamp_min(1e-6)
